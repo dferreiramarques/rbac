@@ -64,4 +64,4 @@ The diagram is not included in the PDF. Copy it from **Export → SVG** or **Exp
 
 ## License
 
-Add a license of your choice (for example MIT) as a `LICENSE` file.
+MIT
