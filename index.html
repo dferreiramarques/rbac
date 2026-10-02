@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RBAC Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{--bg:#f6f6f3;--card:#fff;--tx:#1d1d1b;--mu:#6b6b66;--bd:#dcdcd5;--ac:#2f5bea;--acs:#e6ecff;--ok:#1f8a4c;--inh:#cfd8f7;--wr:#b45309;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151517;--card:#202024;--tx:#ececea;--mu:#9a9a95;--bd:#36363b;--ac:#7a9bff;--acs:#27304f;--ok:#4fc283;--inh:#2f3a63;--wr:#f0a04b}}
+:root[data-theme="dark"]{--bg:#151517;--card:#202024;--tx:#ececea;--mu:#9a9a95;--bd:#36363b;--ac:#7a9bff;--acs:#27304f;--ok:#4fc283;--inh:#2f3a63;--wr:#f0a04b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:16px 16px 0}
+h1{font-size:20px;margin:0}
+.sub{color:var(--mu);font-size:13px;margin:2px 0 10px}
+nav{display:flex;gap:4px;overflow-x:auto;padding:0 12px;border-bottom:1px solid var(--bd);position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5}
+nav button{background:none;border:0;color:var(--mu);padding:10px 12px;font:inherit;font-weight:600;white-space:nowrap;border-bottom:2px solid transparent;cursor:pointer}
+nav button.on{color:var(--ac);border-color:var(--ac)}
+main{padding:16px;max-width:1200px;margin:auto}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+input,select,textarea{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:7px 9px;width:100%}
+label{font-size:12px;color:var(--mu);display:block;margin:8px 0 3px}
+button.b{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.g{background:var(--acs);color:var(--ac)}
+button.d{background:none;color:var(--wr);border:1px solid var(--bd)}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;background:var(--acs);color:var(--ac);font-weight:600}
+.w{overflow-x:auto;border:1px solid var(--bd);border-radius:12px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:middle}
+th{background:var(--bg);font-size:12px;position:sticky;top:0}
+td.mod{font-weight:700;background:var(--bg);color:var(--mu);font-size:11px;text-transform:uppercase}
+.chips{display:flex;gap:2px}
+.chip{width:20px;height:22px;border-radius:5px;border:1px solid var(--bd);background:none;color:var(--mu);font-size:11px;font-weight:700;padding:0;cursor:pointer}
+.chip.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.chip.inh{background:var(--inh);border-color:var(--inh);color:var(--ac)}
+.lg{font-size:12px;color:var(--mu);margin:0 0 8px}
+.warn{color:var(--wr);font-size:13px}
+textarea{min-height:240px;font:12px/1.4 ui-monospace,Menlo,monospace}
+svg text{fill:var(--tx);font:12px system-ui,sans-serif}
+.sv{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:8px;overflow:auto}
+.steps{font-size:12px;color:var(--mu);margin:0 0 12px}
+</style>
+</head>
+<body>
+<header>
+<h1>🛡️ RBAC Manager</h1>
+<p class="sub">Roles → permissions → resources (screens and features). Least privilege, hierarchy and separation of duties.</p>
+</header>
+<nav id="nav"></nav>
+<main id="app"></main>
+<script>
+const ACT=[['V','View'],['C','Create'],['E','Edit'],['D','Delete'],['A','Approve'],['X','Export']];
+const TYPES={h:'Human',s:'Service account',a:'AI agent'};
+const TABS=[['roles','1 · Roles'],['res','2 · Resources'],['mx','3 · Matrix'],['tb','4 · Table'],['dg','5 · Diagram'],['ex','6 · Export']];
+const uid=()=>Math.random().toString(36).slice(2,8);
+function seed(){
+ const r=[{id:'r1',name:'User',desc:'Base read-only access',type:'h',scope:'Global',parent:''},
+  {id:'r2',name:'Manager',desc:'Manages team and approves requests',type:'h',scope:'Global',parent:'r1'},
+  {id:'r3',name:'Administrator',desc:'System configuration',type:'h',scope:'Global',parent:'r2'},
+  {id:'r4',name:'AI Support Agent',desc:'Answers tickets (read-only)',type:'a',scope:'Support',parent:''}];
+ const x=[{id:'x1',kind:'screen',name:'Dashboard',module:'General',risk:'Low'},
+  {id:'x2',kind:'screen',name:'Invoice List',module:'Finance',risk:'Medium'},
+  {id:'x3',kind:'feature',name:'Approve payment',module:'Finance',risk:'High'},
+  {id:'x4',kind:'screen',name:'User Management',module:'Admin',risk:'High'},
+  {id:'x5',kind:'screen',name:'Tickets',module:'Support',risk:'Low'}];
+ return{roles:r,res:x,perm:{'r1|x1':'V','r1|x5':'V','r2|x2':'VCE','r2|x3':'VA','r3|x4':'VCED','r3|x2':'X','r4|x5':'V'},sod:[]};
+}
+let S;try{S=JSON.parse(localStorage.getItem('rbac1'))}catch(e){}
+if(!S||!S.roles)S=seed();
+(()=>{const M={'Utilizador':'User','Acesso base de leitura':'Base read-only access','Gestor':'Manager','Gere equipa e aprova pedidos':'Manages team and approves requests','Administrador':'Administrator','Configuração do sistema':'System configuration','Agente IA Suporte':'AI Support Agent','Responde a tickets (só leitura)':'Answers tickets (read-only)','Suporte':'Support','Geral':'General','Lista de Faturas':'Invoice List','Financeiro':'Finance','Aprovar pagamento':'Approve payment','Gestão de Utilizadores':'User Management','Novo papel':'New role','Novo ecrã':'New screen','Nova funcionalidade':'New feature'},K={Baixo:'Low','Médio':'Medium',Alto:'High'};
+S.roles.forEach(r=>['name','desc','scope'].forEach(k=>r[k]=M[r[k]]||r[k]));S.res.forEach(x=>{['name','module'].forEach(k=>x[k]=M[x[k]]||x[k]);x.risk=K[x.risk]||x.risk})})();
+let tab='roles',fRole='',fMod='',out='md',diaMode='own';
+const save=()=>{try{localStorage.setItem('rbac1',JSON.stringify(S))}catch(e){}};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const R=id=>S.roles.find(r=>r.id===id);
+const own=(r,x)=>S.perm[r+'|'+x]||'';
+function anc(rid){const o=[];let c=R(rid)?.parent;while(c&&!o.includes(c)&&c!==rid){o.push(c);c=R(c)?.parent}return o}
+function eff(r,x){const s=new Set(own(r,x));anc(r).forEach(a=>[...own(a,x)].forEach(l=>s.add(l)));return ACT.map(a=>a[0]).filter(l=>s.has(l)).join('')}
+const mods=()=>[...new Set(S.res.map(x=>x.module||'—'))];
+const sorted=()=>[...S.res].sort((a,b)=>(a.module||'').localeCompare(b.module||''));
+
+document.getElementById('nav').innerHTML=TABS.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('');
+document.getElementById('nav').onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;render()}};
+
+function render(){
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
+ const f={roles:vRoles,res:vRes,mx:vMx,tb:vTb,dg:vDg,ex:vEx}[tab];
+ document.getElementById('app').innerHTML=f();
+ if(tab==='dg')document.getElementById('app').querySelector('.sv').innerHTML=svg();
+ save();
+}
+
+function vRoles(){
+ const o=(sel,ex)=>'<option value="">— none —</option>'+S.roles.filter(r=>r.id!==ex).map(r=>`<option value="${r.id}" ${r.id===sel?'selected':''}>${esc(r.name)}</option>`).join('');
+ return `<p class="steps">Step 1 — Define roles by business function, not by menus. Use inheritance to avoid duplication (e.g. Manager inherits from User).</p>
+ <div class="row" style="margin-bottom:12px"><button class="b" data-a="addRole">+ New role</button></div>
+ <div class="grid">${S.roles.map(r=>`<div class="card">
+  <div class="row" style="justify-content:space-between"><span class="tag">${TYPES[r.type]}</span><button class="b d" data-a="delRole" data-id="${r.id}">Delete</button></div>
+  <label>Name</label><input data-f="roles.name" data-id="${r.id}" value="${esc(r.name)}">
+  <label>Description / responsibilities</label><input data-f="roles.desc" data-id="${r.id}" value="${esc(r.desc)}">
+  <label>Scope (Global or domain/application)</label><input data-f="roles.scope" data-id="${r.id}" value="${esc(r.scope)}">
+  <label>Identity type</label><select data-f="roles.type" data-id="${r.id}">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}" ${k===r.type?'selected':''}>${v}</option>`).join('')}</select>
+  <label>Inherits from (hierarchy)</label><select data-f="roles.parent" data-id="${r.id}">${o(r.parent,r.id)}</select>
+ </div>`).join('')}</div>
+ <div class="card"><b>Separation of duties (SoD)</b><p class="lg">Pairs of mutually exclusive roles (e.g. Requester ≠ Approver).</p>
+ ${S.sod.map((p,i)=>{const bad=anc(p[0]).includes(p[1])||anc(p[1]).includes(p[0]);return `<div class="row" style="margin-bottom:6px"><select data-f="sod0" data-i="${i}" style="flex:1">${o(p[0],'')}</select><span>⊥</span><select data-f="sod1" data-i="${i}" style="flex:1">${o(p[1],'')}</select><button class="b d" data-a="delSod" data-i="${i}">✕</button></div>${bad?'<div class="warn">⚠ Conflict: one of the roles inherits from the other.</div>':''}`}).join('')}
+ <button class="b g" data-a="addSod">+ Constraint</button></div>`;
+}
+
+function vRes(){
+ return `<p class="steps">Step 2 — Register the screens and features to protect. Set the risk level to focus reviews on sensitive resources.</p>
+ <div class="row" style="margin-bottom:12px"><button class="b" data-a="addRes" data-k="screen">+ Screen</button><button class="b g" data-a="addRes" data-k="feature">+ Feature</button></div>
+ <div class="w"><table><tr><th>Type</th><th>Name</th><th>Module</th><th>Risk</th><th></th></tr>
+ ${S.res.map(x=>`<tr><td><select data-f="res.kind" data-id="${x.id}"><option value="screen" ${x.kind==='screen'?'selected':''}>Screen</option><option value="feature" ${x.kind==='feature'?'selected':''}>Feature</option></select></td>
+ <td><input data-f="res.name" data-id="${x.id}" value="${esc(x.name)}"></td>
+ <td><input data-f="res.module" data-id="${x.id}" value="${esc(x.module)}"></td>
+ <td><select data-f="res.risk" data-id="${x.id}">${['Low','Medium','High'].map(v=>`<option ${v===x.risk?'selected':''}>${v}</option>`).join('')}</select></td>
+ <td><button class="b d" data-a="delRes" data-id="${x.id}">✕</button></td></tr>`).join('')}</table></div>`;
+}
+
+const legend=()=>`<p class="lg">${ACT.map(a=>`<b>${a[0]}</b>=${a[1]}`).join(' · ')} &nbsp;|&nbsp; green = assigned · blue = inherited</p>`;
+
+function vMx(){
+ let h=`<p class="steps">Step 3 — Click the letters to grant permissions to each role on each resource.</p>${legend()}<div class="w"><table><tr><th>Resource</th>${S.roles.map(r=>`<th>${esc(r.name)}</th>`).join('')}</tr>`;
+ let m=null;
+ sorted().forEach(x=>{
+  if(x.module!==m){m=x.module;h+=`<tr><td class="mod" colspan="${S.roles.length+1}">${esc(m||'—')}</td></tr>`}
+  h+=`<tr><td>${x.kind==='screen'?'🖥️':'⚙️'} ${esc(x.name)}${x.risk==='High'?' <span class="warn">●</span>':''}</td>`+S.roles.map(r=>{
+   const o=own(r.id,x.id),e=eff(r.id,x.id);
+   return `<td><div class="chips">${ACT.map(a=>`<button class="chip ${o.includes(a[0])?'on':e.includes(a[0])?'inh':''}" title="${a[1]}" data-a="tg" data-r="${r.id}" data-x="${x.id}" data-l="${a[0]}">${a[0]}</button>`).join('')}</div></td>`}).join('')+'</tr>';
+ });
+ return h+'</table></div>';
+}
+
+function vTb(){
+ const rs=fRole?S.roles.filter(r=>r.id===fRole):S.roles;
+ let rows='';
+ rs.forEach(r=>sorted().forEach(x=>{
+  if(fMod&&x.module!==fMod)return;const e=eff(r.id,x.id);if(!e)return;
+  rows+=`<tr><td><b>${esc(r.name)}</b></td><td>${TYPES[r.type]}</td><td>${esc(x.module)}</td><td>${x.kind==='screen'?'Screen':'Feature'}</td><td>${esc(x.name)}</td><td>${[...e].map(l=>ACT.find(a=>a[0]===l)[1]).join(', ')}</td><td>${esc(x.risk)}</td></tr>`}));
+ return `<div class="row" style="margin-bottom:12px"><select data-fl="role" style="flex:1;min-width:140px"><option value="">All roles</option>${S.roles.map(r=>`<option value="${r.id}" ${r.id===fRole?'selected':''}>${esc(r.name)}</option>`).join('')}</select>
+ <select data-fl="mod" style="flex:1;min-width:140px"><option value="">All modules</option>${mods().map(m=>`<option ${m===fMod?'selected':''}>${esc(m)}</option>`).join('')}</select></div>
+ <div class="w"><table><tr><th>Role</th><th>Identity</th><th>Module</th><th>Type</th><th>Resource</th><th>Permissions (effective)</th><th>Risk</th></tr>${rows||'<tr><td colspan="7">No permissions assigned.</td></tr>'}</table></div>`;
+}
+
+function svg(){
+ const RH=58,XH=34,top=30,rn=S.roles.length,xs=sorted(),H=Math.max(rn*RH,xs.length*XH)+top+20,W=800;
+ const col=i=>`hsl(${(i*67+220)%360} 65% 52%)`;
+ const ry=i=>top+i*RH+RH/2, xy=i=>top+i*XH+XH/2;
+ let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" style="min-width:${W}px;max-width:100%"><defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L8,4L0,8z" fill="#888"/></marker></defs>
+ <text x="70" y="16" font-weight="700">ROLES</text><text x="540" y="16" font-weight="700">RESOURCES</text>`;
+ S.roles.forEach((r,i)=>{const p=S.roles.findIndex(q=>q.id===r.parent);if(p>=0)s+=`<path d="M70,${ry(i)} C10,${ry(i)} 10,${ry(p)} 70,${ry(p)}" fill="none" stroke="#888" stroke-dasharray="4 3" marker-end="url(#ar)"/>`});
+ S.roles.forEach((r,i)=>xs.forEach((x,j)=>{const p=diaMode==='own'?own(r.id,x.id):eff(r.id,x.id);if(!p)return;
+  const y1=ry(i),y2=xy(j);s+=`<path d="M240,${y1} C380,${y1} 400,${y2} 530,${y2}" fill="none" stroke="${col(i)}" stroke-width="1.6" opacity=".7"/><text x="480" y="${y1+(y2-y1)*.85-3}" font-size="10" fill="${col(i)}" style="fill:${col(i)};font-weight:700">${p}</text>`}));
+ S.roles.forEach((r,i)=>{s+=`<rect x="70" y="${ry(i)-20}" width="170" height="40" rx="8" fill="${col(i)}"/><text x="155" y="${ry(i)+4}" text-anchor="middle" style="fill:#fff;font-weight:700">${esc(r.name.slice(0,22))}</text>`});
+ xs.forEach((x,j)=>{s+=`<rect x="530" y="${xy(j)-13}" width="250" height="26" rx="6" style="fill:var(--card);stroke:${x.risk==='High'?'#d9534f':'#999'}"/><text x="540" y="${xy(j)+4}">${x.kind==='screen'?'🖥️':'⚙️'} ${esc((x.module?x.module+' › ':'')+x.name).slice(0,34)}</text>`});
+ return s+'</svg>';
+}
+function vDg(){return `<p class="steps">Step 5 — Dashed arrows = inheritance. Coloured lines = role permissions on the resource (red border = high risk).</p>
+ <div class="row" style="margin-bottom:10px"><select data-fl="dia" style="max-width:280px"><option value="own" ${diaMode==='own'?'selected':''}>Assigned permissions only</option><option value="eff" ${diaMode==='eff'?'selected':''}>Include inherited</option></select></div><div class="sv"></div>`}
+
+const MM=s=>s.replace(/[^\w]/g,'_');
+function gen(k){
+ const xs=sorted();
+ if(k==='json')return JSON.stringify(S,null,1);
+ if(k==='svg')return svg();
+ if(k==='csv'){const q=v=>'"'+String(v).replace(/"/g,'""')+'"';return [['Module','Type','Resource','Risk',...S.roles.map(r=>r.name)].map(q).join(',')].concat(xs.map(x=>[x.module,x.kind==='screen'?'Screen':'Feature',x.name,x.risk,...S.roles.map(r=>eff(r.id,x.id))].map(q).join(','))).join('\n')}
+ if(k==='mm'){let t='graph LR\n';S.roles.forEach(r=>{t+=`  ${r.id}["${r.name}"]\n`;if(r.parent)t+=`  ${r.id} -->|inherits| ${r.parent}\n`});xs.forEach(x=>t+=`  ${x.id}["${x.name}"]\n`);S.roles.forEach(r=>xs.forEach(x=>{const p=own(r.id,x.id);if(p)t+=`  ${r.id} -->|${p}| ${x.id}\n`}));return t}
+ let t='# RBAC Documentation\n\n## Roles\n\n| Role | Type | Scope | Inherits from | Description |\n|---|---|---|---|---|\n'+S.roles.map(r=>`| ${r.name} | ${TYPES[r.type]} | ${r.scope} | ${R(r.parent)?.name||'—'} | ${r.desc} |`).join('\n');
+ t+='\n\n## Permissions matrix\n\nLegend: '+ACT.map(a=>a.join('=')).join(', ')+'\n\n| Module | Resource | Risk | '+S.roles.map(r=>r.name).join(' | ')+' |\n|---|---|---|'+S.roles.map(()=>'---').join('|')+'|\n'+xs.map(x=>`| ${x.module} | ${x.kind==='screen'?'🖥️':'⚙️'} ${x.name} | ${x.risk} | `+S.roles.map(r=>eff(r.id,x.id)||'—').join(' | ')+' |').join('\n');
+ if(S.sod.length)t+='\n\n## Separation of duties\n\n'+S.sod.map(p=>`- ${R(p[0])?.name} ⊥ ${R(p[1])?.name}`).join('\n');
+ return t;
+}
+function vEx(){
+ const K=[['md','Markdown'],['csv','CSV'],['mm','Mermaid'],['svg','SVG'],['json','JSON (backup)']];
+ return `<p class="steps">Step 6 — Generate the documentation, then copy and paste it where you need it (Notion, Confluence, Excel, mermaid.live). Review access periodically.</p>
+ <div class="card row" style="justify-content:space-between"><span><b>PDF document</b><br><span class="lg">Roles, permissions matrix and separation of duties (A4 landscape).</span></span><button class="b" data-a="pdf">⬇ Export PDF</button></div>
+ <div class="row" style="margin-bottom:10px">${K.map(k=>`<button class="b ${out===k[0]?'':'g'}" data-a="out" data-k="${k[0]}">${k[1]}</button>`).join('')}</div>
+ <textarea id="ta" readonly>${esc(gen(out))}</textarea>
+ <div class="row" style="margin-top:10px"><button class="b" data-a="copy">Copy</button><button class="b g" data-a="imp">Import pasted JSON</button><button class="b d" data-a="reset">Reset to example</button></div>
+ <p class="lg" id="msg" style="margin-top:8px">To import: choose JSON, clear the box, paste your backup and click Import.</p>`;
+}
+
+const T=s=>String(s??'').replace(/[^\x20-\x7E\u00A0-\u00FF]/g,'');
+async function pdf(){
+ const m=document.getElementById('msg');
+ try{
+  const dl=window.claude&&await window.claude.use('downloads');
+  if(!dl){m.textContent='Download unavailable in this view.';return}
+  const J=window.jspdf&&window.jspdf.jsPDF;
+  if(!J){m.textContent='PDF library failed to load.';return}
+  const d=new J({orientation:'landscape',unit:'pt',format:'a4'});
+  const mg=36,hs={fillColor:[47,91,234],textColor:255,fontSize:9},bs={fontSize:8.5,cellPadding:4};
+  d.setFontSize(18);d.text('RBAC Documentation',mg,44);
+  d.setFontSize(9);d.setTextColor(110);d.text(new Date().toLocaleDateString('en-GB')+'  |  '+S.roles.length+' roles, '+S.res.length+' resources',mg,60);
+  d.setTextColor(0);d.setFontSize(12);d.text('1. Roles',mg,86);
+  d.autoTable({startY:94,margin:{left:mg,right:mg},head:[['Role','Identity','Scope','Inherits from','Description']],headStyles:hs,styles:bs,
+   body:S.roles.map(r=>[T(r.name),TYPES[r.type],T(r.scope),T(R(r.parent)?.name||'-'),T(r.desc)])});
+  let y=d.lastAutoTable.finalY+26;
+  if(y>470){d.addPage();y=44}
+  d.setFontSize(12);d.text('2. Permissions matrix',mg,y);
+  d.setFontSize(8);d.setTextColor(110);d.text('Legend: '+ACT.map(a=>a[0]+'='+T(a[1])).join(', ')+'  (includes inherited permissions)',mg,y+12);d.setTextColor(0);
+  d.autoTable({startY:y+20,margin:{left:mg,right:mg},head:[['Module','Type','Resource','Risk',...S.roles.map(r=>T(r.name))]],headStyles:hs,styles:bs,
+   columnStyles:Object.fromEntries(S.roles.map((_,i)=>[i+4,{halign:'center',fontStyle:'bold'}])),
+   body:sorted().map(x=>[T(x.module),x.kind==='screen'?'Screen':'Feature',T(x.name),T(x.risk),...S.roles.map(r=>eff(r.id,x.id)||'-')]),
+   didParseCell:h=>{if(h.section==='body'&&h.column.index===3&&h.cell.raw==='High')h.cell.styles.textColor=[200,60,50]}});
+  if(S.sod.length){
+   y=d.lastAutoTable.finalY+26;if(y>520){d.addPage();y=44}
+   d.setFontSize(12);d.text('3. Separation of duties (SoD)',mg,y);
+   d.autoTable({startY:y+8,margin:{left:mg,right:mg},head:[['Role A','Role B']],headStyles:hs,styles:bs,body:S.sod.map(p=>[T(R(p[0])?.name||'-'),T(R(p[1])?.name||'-')])});
+  }
+  const n=d.getNumberOfPages();
+  for(let i=1;i<=n;i++){d.setPage(i);d.setFontSize(8);d.setTextColor(130);d.text('RBAC Manager - page '+i+'/'+n,mg,d.internal.pageSize.getHeight()-18)}
+  await dl.save({filename:'rbac-documentation.pdf',data:d.output('arraybuffer')});
+  m.textContent='PDF saved ✔';
+ }catch(e){m.textContent=e&&e.code==='declined'?'Export cancelled.':'Could not generate the PDF.'}
+}
+const app=document.getElementById('app');
+app.addEventListener('click',e=>{
+ const b=e.target.closest('[data-a]');if(!b)return;const d=b.dataset,a=d.a;
+ if(a==='pdf'){pdf();return}
+ if(a==='addRole')S.roles.push({id:'r'+uid(),name:'New role',desc:'',type:'h',scope:'Global',parent:''});
+ else if(a==='delRole'){if(!confirm('Delete this role?'))return;S.roles=S.roles.filter(r=>r.id!==d.id);S.roles.forEach(r=>{if(r.parent===d.id)r.parent=''});S.sod=S.sod.filter(p=>!p.includes(d.id));Object.keys(S.perm).forEach(k=>{if(k.startsWith(d.id+'|'))delete S.perm[k]})}
+ else if(a==='addSod')S.sod.push(['','']);
+ else if(a==='delSod')S.sod.splice(+d.i,1);
+ else if(a==='addRes')S.res.push({id:'x'+uid(),kind:d.k,name:d.k==='screen'?'New screen':'New feature',module:'General',risk:'Low'});
+ else if(a==='delRes'){S.res=S.res.filter(x=>x.id!==d.id);Object.keys(S.perm).forEach(k=>{if(k.endsWith('|'+d.id))delete S.perm[k]})}
+ else if(a==='tg'){const k=d.r+'|'+d.x;let s=new Set(S.perm[k]||'');s.has(d.l)?s.delete(d.l):s.add(d.l);const v=ACT.map(z=>z[0]).filter(l=>s.has(l)).join('');v?S.perm[k]=v:delete S.perm[k]}
+ else if(a==='out')out=d.k;
+ else if(a==='copy'){const t=document.getElementById('ta');t.select();let ok=false;try{ok=document.execCommand('copy')}catch(_){}try{navigator.clipboard.writeText(t.value);ok=true}catch(_){}document.getElementById('msg').textContent=ok?'Copied ✔':'Select the text and copy it manually.';return}
+ else if(a==='imp'){try{const j=JSON.parse(document.getElementById('ta').value);if(!j.roles||!j.res)throw 0;S=j;out='md'}catch(_){document.getElementById('msg').textContent='Invalid JSON.';return}}
+ else if(a==='reset'){if(!confirm('Replace everything with the example?'))return;S=seed()}
+ if(a==='imp')document.getElementById('ta')&&0;
+ render();
+});
+app.addEventListener('change',e=>{
+ const t=e.target,d=t.dataset;
+ if(d.fl){if(d.fl==='role')fRole=t.value;if(d.fl==='mod')fMod=t.value;if(d.fl==='dia')diaMode=t.value;return render()}
+ if(!d.f)return;
+ if(d.f==='sod0'||d.f==='sod1'){S.sod[+d.i][d.f==='sod0'?0:1]=t.value;return render()}
+ const[kind,key]=d.f.split('.');const o=(kind==='roles'?S.roles:S.res).find(z=>z.id===d.id);
+ if(key==='parent'&&t.value){const old=o.parent;o.parent=t.value;if(anc(o.id).includes(o.id)||anc(t.value).includes(o.id)){o.parent=old;alert('Circular inheritance is not allowed.')}}
+ else o[key]=t.value;
+ render();
+});
+render();
+</script>
+</body>
+</html>
