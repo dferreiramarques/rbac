@@ -190,8 +190,8 @@ const T=s=>String(s??'').replace(/[^\x20-\x7E\u00A0-\u00FF]/g,'');
 async function pdf(){
  const m=document.getElementById('msg');
  try{
-  const dl=window.claude&&await window.claude.use('downloads');
-  if(!dl){m.textContent='Download unavailable in this view.';return}
+  let dl=null;
+  try{dl=window.claude&&await window.claude.use('downloads')}catch(_){}
   const J=window.jspdf&&window.jspdf.jsPDF;
   if(!J){m.textContent='PDF library failed to load.';return}
   const d=new J({orientation:'landscape',unit:'pt',format:'a4'});
@@ -216,9 +216,14 @@ async function pdf(){
   }
   const n=d.getNumberOfPages();
   for(let i=1;i<=n;i++){d.setPage(i);d.setFontSize(8);d.setTextColor(130);d.text('RBAC Manager - page '+i+'/'+n,mg,d.internal.pageSize.getHeight()-18)}
-  await dl.save({filename:'rbac-documentation.pdf',data:d.output('arraybuffer')});
+  if(dl)await dl.save({filename:'rbac-documentation.pdf',data:d.output('arraybuffer')});
+  else{
+   const u=URL.createObjectURL(d.output('blob')),a=document.createElement('a');
+   a.href=u;a.download='rbac-documentation.pdf';document.body.appendChild(a);a.click();a.remove();
+   setTimeout(()=>URL.revokeObjectURL(u),1000);
+  }
   m.textContent='PDF saved ✔';
- }catch(e){m.textContent=e&&e.code==='declined'?'Export cancelled.':'Could not generate the PDF.'}
+ }catch(e){console.error(e);m.textContent=e&&e.code==='declined'?'Export cancelled.':'Could not generate the PDF: '+(e&&e.message||e)}
 }
 const app=document.getElementById('app');
 app.addEventListener('click',e=>{
