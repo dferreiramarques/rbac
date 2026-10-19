@@ -275,8 +275,8 @@ async function pdf(){
   if(!J){m.textContent='PDF library failed to load.';return}
   const d=new J({orientation:'landscape',unit:'pt',format:'a4'});
   const mg=36,hs={fillColor:[47,91,234],textColor:255,fontSize:9},bs={fontSize:8.5,cellPadding:4};
-  d.setFontSize(18);d.text('RBAC Documentation',mg,44);
-  d.setFontSize(9);d.setTextColor(110);d.text(T(S.name)+'  |  '+new Date().toLocaleDateString('en-GB')+'  |  '+S.roles.length+' roles, '+S.res.length+' resources',mg,60);
+  d.setFontSize(18);d.text('RBAC : '+T(S.name),mg,44);
+  d.setFontSize(9);d.setTextColor(110);d.text(new Date().toLocaleDateString('en-GB')+'  |  '+S.roles.length+' roles, '+S.res.length+' resources',mg,60);
   d.setTextColor(0);d.setFontSize(12);d.text('1. Roles',mg,86);
   d.autoTable({startY:94,margin:{left:mg,right:mg},head:[['Role','Identity','Scope','Inherits from','Description']],headStyles:hs,styles:bs,
    body:S.roles.map(r=>[T(r.name),TYPES[r.type],T(r.scope),T(R(r.parent)?.name||'-'),T(r.desc)])});
