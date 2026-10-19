@@ -23,6 +23,10 @@ A child role receives every permission of its parent in addition to its own. Cir
 
 Do not link roles through inheritance when they must stay isolated. For example, if a "Reporting Manager" role should see consolidated data but not raw data, do not make it inherit from a "Data Analyst" role. Create a shared base role for what both need and add a separation-of-duties constraint between them.
 
+### Projects
+
+Each product or system is a project, shown as a tab above the steps (colour-coded; drag a tab to reorder it, right-click a tab or use **⋯** to rename, recolour, move, duplicate or delete it, **+** to add one). Projects are stored only in this browser's `localStorage`. **Load project from JSON file…** (in the New project dialog and in Export) adds a project from a file; a file exported with **JSON (all projects)** adds one tab per project.
+
 ## Usage
 
 No build step and no server needed.
@@ -40,7 +44,7 @@ No build step and no server needed.
 ## Data and privacy
 
 - Everything runs in your browser. No data is sent to any server.
-- Your model is stored in the browser's `localStorage`, so it is private to that browser on that device.
+- Your projects are stored in the browser's `localStorage`, so it is private to that browser on that device.
 - Use **Export → JSON** to back up your model or move it to another device, and **Import pasted JSON** to restore it.
 - Clearing site data deletes your model. Export a backup first.
 
