@@ -1,6 +1,6 @@
 # RBAC Manager
 
-A single-file, zero-dependency web tool to design and document **role-based access control (RBAC)**: define roles, register screens and features, assign permissions, and generate documentation as a matrix, table, diagram or PDF.
+A zero-dependency, no-build web tool to design and document **role-based access control (RBAC)**: define roles, register screens and features, assign permissions, and generate documentation as a matrix, table, diagram or PDF.
 
 The workflow follows the steps described in IBM's guide to [implementing RBAC](https://www.ibm.com/think/topics/role-based-access-control-implementation): define roles and resources, assign permissions following least privilege, use role hierarchy, and enforce separation of duties.
 
@@ -12,7 +12,7 @@ The workflow follows the steps described in IBM's guide to [implementing RBAC](h
 |---|---|---|
 | 1 | **Roles** | Create roles with name, description, scope (global or domain), identity type (human, service account, AI agent) and an optional parent role (hierarchy). Define mutually exclusive role pairs (separation of duties) with conflict warnings. |
 | 2 | **Resources** | Register screens and features, group them by module and set a risk level (Low, Medium, High). |
-| 3 | **Matrix** | Click to grant View, Create, Edit, Delete, Approve and Export on each resource per role. Assigned permissions are green, inherited ones are blue. |
+| 3 | **Matrix** | Click to grant View, Create, Edit, Delete, Approve and Export on each resource per role. Assigned permissions are green, inherited ones are violet. |
 | 4 | **Table** | Read-only list of effective permissions, filterable by role and module. |
 | 5 | **Diagram** | SVG showing role inheritance and role-to-resource permissions, with high-risk resources highlighted. |
 | 6 | **Export** | Markdown, CSV, Mermaid, SVG and JSON (backup/import), plus a PDF report (roles, permissions matrix, separation of duties). |
@@ -28,11 +28,11 @@ Do not link roles through inheritance when they must stay isolated. For example,
 No build step and no server needed.
 
 1. Download or clone the repository.
-2. Open `index.html` in a modern browser.
+2. Open `index.html` (product page) or `app.html` (the app) in a modern browser.
 
 ### Deploy with GitHub Pages
 
-1. Make sure the file is named `index.html` in the repository root.
+1. Keep `index.html` (product page) and `app.html` (the app) in the repository root.
 2. Go to **Settings → Pages**.
 3. Under **Build and deployment**, choose **Deploy from a branch**, then select your main branch and the `/ (root)` folder.
 4. Your tool will be live at `https://<user>.github.io/<repo>/`.
@@ -52,9 +52,10 @@ The diagram is not included in the PDF. Copy it from **Export → SVG** or **Exp
 
 ## Tech
 
-- Plain HTML, CSS and JavaScript in one file
+- Plain HTML, CSS and JavaScript: `index.html` is the product page, `app.html` the app
+- `product-page.css` is the design system shared with the Roadmaps, Taskboards and Diagramico product pages (copy of the Roadmaps reference). RBAC only overrides the accent tokens (violet); Inter and JetBrains Mono are self-hosted in `assets/fonts`
 - jsPDF 2.5.1 and jsPDF-AutoTable 3.8.2 (CDN)
-- Light and dark theme follow the system setting
+- Light and dark theme follow the system setting until you pick one; dark/light only change colours
 
 ## Limitations
 
